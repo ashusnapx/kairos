@@ -1,0 +1,40 @@
+[project]
+name = "kairos-backend"
+version = "0.1.0"
+description = "KYC Autonomous Intelligence & Risk Oversight System"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]",
+    "pydantic>=2.10",
+    "pydantic-settings",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg",
+    "alembic",
+    "redis[hiredis]",
+    "neo4j",
+    "langgraph",
+    "openai",
+    "httpx",
+    "python-multipart",
+    "tenacity",
+    "structlog",
+    "Pillow",
+    "opencv-python-headless",
+    "imagehash",
+    "sentence-transformers",
+    "rapidfuzz",
+    "scikit-learn",
+    "lightgbm",
+    "numpy",
+    "shap",
+    "faker",
+    "pandas",
+]
+
+[project.optional-dependencies]
+rocm = [
+    "torch>=2.5",
+    "onnxruntime-rocm",
+    "vllm>=0.6",
+]
