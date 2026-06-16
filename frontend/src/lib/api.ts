@@ -36,4 +36,28 @@ export const api = {
 
   getMetrics: () =>
     fetchAPI("/api/observability/metrics"),
+
+  simulateCounterfactual: (caseId: string, data: any) =>
+    fetchAPI(`/api/cases/${caseId}/simulate-counterfactual`, { method: "POST", body: JSON.stringify(data) }),
+
+  getBenchmarks: () =>
+    fetchAPI("/api/judge/benchmarks"),
+
+  getPolicies: () =>
+    fetchAPI("/api/policies"),
+
+  getRedteamSummary: () =>
+    fetchAPI("/api/redteam/summary"),
+
+  triggerRedteamAttack: (data: { scenario_name: string }) =>
+    fetchAPI("/api/redteam/trigger", { method: "POST", body: JSON.stringify(data) }),
+
+  uploadCaseFile: (formData: FormData) =>
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/cases/upload`, {
+      method: "POST",
+      body: formData,
+    }).then((res) => {
+      if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`)
+      return res.json()
+    }),
 }

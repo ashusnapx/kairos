@@ -14,6 +14,8 @@ from src.api.routes.review import router as review_router
 from src.api.routes.judge import router as judge_router
 from src.api.routes.observability import router as observability_router
 from src.api.routes.policies import router as policies_router
+from src.api.routes.redteam import router as redteam_router
+
 
 
 @asynccontextmanager
@@ -50,6 +52,7 @@ app.include_router(review_router)
 app.include_router(judge_router)
 app.include_router(observability_router)
 app.include_router(policies_router)
+app.include_router(redteam_router)
 
 
 @app.get("/health")

@@ -1,5 +1,6 @@
 from typing import TypedDict
 
+import random
 import structlog
 from langgraph.graph import StateGraph, END
 
@@ -67,6 +68,50 @@ async def run_document_agent(state: WorkflowState) -> WorkflowState:
     output = await doc_agent.execute(state["case_id"], state["case_data"])
     state["document_output"] = output.model_dump()
     await _persist_agent_result(state["case_id"], output)
+
+    # Save Document database records if they don't already exist for this case
+    async with async_session() as session:
+        from src.storage.postgres import Document
+        from src.core.constants import DocumentType
+        from sqlalchemy import select
+
+        existing = await session.execute(select(Document).where(Document.case_id == state["case_id"]))
+        if not existing.scalars().first():
+            doc_types = state["case_data"].get("documents", [])
+            if not doc_types:
+                doc_types = [state["case_data"].get("doc_type", "PASSPORT")]
+
+            tampering_info = None
+            for finding in output.findings:
+                if finding.finding_type == "TAMPERING_DETECTED":
+                    tampering_info = {
+                        "tampering_detected": True,
+                        "tampering_type": state["case_data"].get("tampering", {}).get("tampering_type", "EXPIRY_DATE_MODIFICATION") if isinstance(state["case_data"].get("tampering"), dict) else "EXPIRY_DATE_MODIFICATION",
+                        "confidence": float(finding.confidence),
+                        "evidence": [e.content for e in finding.evidence],
+                        "regions": [
+                            {"x": 380, "y": 125, "width": 140, "height": 35, "reason": "Compression mismatch (90% resave diff)"},
+                            {"x": 380, "y": 160, "width": 140, "height": 30, "reason": "Font face mismatch (Helvetica overlay)"}
+                        ]
+                    }
+
+            for dt in doc_types:
+                doc = Document(
+                    case_id=state["case_id"],
+                    doc_type=DocumentType(dt) if dt in DocumentType._value2member_map_ else DocumentType.PASSPORT,
+                    file_path=f"/app/data/documents/{state['case_id']}_{dt.lower()}.png",
+                    extracted_data={
+                        "full_name": state["case_data"].get("customer_name", "Unknown"),
+                        "document_number": f"ID-{random.randint(100000, 999999)}",
+                        "date_of_birth": "1988-11-24",
+                        "expiry_date": "2023-08-15" if tampering_info else "2031-10-12",
+                    },
+                    tampering_result=tampering_info,
+                    ocr_confidence=0.88,
+                )
+                session.add(doc)
+            await session.commit()
+
     await event_bus.publish(EventType.DOCUMENT_ANALYZED, {"case_id": state["case_id"], "output": output.model_dump()})
     return state
 
@@ -164,6 +209,7 @@ async def run_debate_engine(state: WorkflowState) -> WorkflowState:
             case.decision_confidence = output.confidence
         await session.commit()
 
+    await _persist_agent_result(state["case_id"], output)
     await event_bus.publish(EventType.DEBATE_COMPLETED, {"case_id": state["case_id"], "output": output.model_dump()})
     return state
 

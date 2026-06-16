@@ -1,5 +1,7 @@
 import json
 import structlog
+import uuid
+from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
@@ -114,3 +116,114 @@ async def get_graph(case_id: str):
                     "type": rel.get("type", ""),
                 })
     return {"nodes": list(nodes.values()), "edges": edges}
+
+
+from fastapi import UploadFile, File, Form
+import random
+
+@router.post("/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    customer_name: str = Form(None),
+    doc_type: str = Form("PASSPORT")
+):
+    try:
+        contents = await file.read()
+        hex_bytes = contents.hex()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to read file: {e}")
+
+    # Generate a random transaction profile and details to trigger a full agent pipeline
+    name = customer_name or file.filename.split(".")[0].replace("_", " ").title()
+    income = random.randint(45000, 180000)
+    tx_count = random.randint(10, 22)
+    transactions = [random.randint(1000, 12000) for _ in range(tx_count)]
+
+    # Make structuring likely for demo if the name contains suspicious triggers
+    if "structured" in name.lower() or "mule" in name.lower():
+        transactions = [random.randint(8500, 9900) for _ in range(tx_count)]
+
+    case_payload = {
+        "customer_name": name,
+        "customer_id": f"CUST-{uuid.uuid4().hex[:8].upper()}",
+        "address": "123 Financial Center Blvd, Suite 400",
+        "income": income,
+        "transactions": transactions,
+        "deposits": [t for t in transactions if t > 0],
+        "document_bytes": hex_bytes,
+        "doc_type": doc_type,
+    }
+
+    result = await run_case(case_payload)
+    case_id = result.get("case_id", "")
+    if not case_id:
+        raise HTTPException(status_code=500, detail="Failed to run workflow on uploaded file")
+
+    # Persist the document details in PostgreSQL
+    async with async_session() as session:
+        from src.storage.postgres import Document
+        from src.core.constants import DocumentType
+        import os
+
+        # Save mock file path
+        file_dir = "/app/data/uploads"
+        os.makedirs(file_dir, exist_ok=True)
+        file_path = os.path.join(file_dir, f"{case_id}_{file.filename}")
+        with open(file_path, "wb") as f:
+            f.write(contents)
+
+        doc = Document(
+            case_id=case_id,
+            doc_type=DocumentType(doc_type) if doc_type in DocumentType._value2member_map_ else DocumentType.PASSPORT,
+            file_path=file_path,
+            extracted_data={"full_name": name, "file_size": len(contents)},
+            ocr_confidence=0.88,
+        )
+        session.add(doc)
+        await session.commit()
+
+    return {"case_id": case_id, "status": "processed", "trace_id": result.get("trace_id", "")}
+
+
+class CounterfactualSimulation(BaseModel):
+    income_proof_submitted: bool = False
+    address_verified: bool = False
+    additional_collateral: bool = False
+    pattern_explained: bool = False
+
+
+@router.post("/{case_id}/simulate-counterfactual")
+async def simulate_counterfactual(case_id: str, body: CounterfactualSimulation):
+    async with async_session() as session:
+        case = await session.get(Case, case_id)
+        if not case:
+            raise HTTPException(status_code=404, detail="Case not found")
+
+        original_risk = case.risk_score
+        original_decision = case.decision or "REVIEW"
+
+        simulated_risk = original_risk
+        if body.income_proof_submitted:
+            simulated_risk -= 30
+        if body.address_verified:
+            simulated_risk -= 15
+        if body.additional_collateral:
+            simulated_risk -= 10
+        if body.pattern_explained:
+            simulated_risk -= 20
+
+        simulated_risk = max(5.0, min(100.0, simulated_risk))
+
+        simulated_decision = "APPROVE"
+        if simulated_risk > 60:
+            simulated_decision = "REVIEW"
+        if simulated_risk > 80:
+            simulated_decision = "ESCALATE"
+
+        return {
+            "case_id": case_id,
+            "original_risk": original_risk,
+            "simulated_risk": simulated_risk,
+            "original_decision": original_decision,
+            "simulated_decision": simulated_decision,
+        }

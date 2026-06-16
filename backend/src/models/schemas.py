@@ -84,6 +84,8 @@ class DebateResult(BaseModel):
 
 
 class CaseCreate(BaseModel):
+    model_config = {"extra": "allow"}
+
     customer_name: str
     customer_id: str = ""
     documents: list[str] = []
