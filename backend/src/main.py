@@ -15,6 +15,7 @@ from src.api.routes.judge import router as judge_router
 from src.api.routes.observability import router as observability_router
 from src.api.routes.policies import router as policies_router
 from src.api.routes.redteam import router as redteam_router
+from src.api.routes.upload import router as upload_router
 
 
 
@@ -53,6 +54,7 @@ app.include_router(judge_router)
 app.include_router(observability_router)
 app.include_router(policies_router)
 app.include_router(redteam_router)
+app.include_router(upload_router)
 
 
 @app.get("/health")

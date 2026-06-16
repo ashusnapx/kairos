@@ -54,6 +54,29 @@ class IdentityResolutionAgent(BaseAgent):
 
         resolved_name = ""
         name_confidence = 0.0
+
+        # Check matching name from document extracted fields
+        extracted_fields = payload.get("extracted_fields", {})
+        extracted_name = extracted_fields.get("full_name", "")
+        customer_name = entities[0] if entities else ""
+
+        if customer_name and extracted_name:
+            ns = compute_name_similarity(customer_name, extracted_name)
+            name_confidence = ns
+            if ns < 0.6:
+                findings.append(Finding(
+                    finding_type="IDENTITY_MISMATCH",
+                    description=f"Profile name '{customer_name}' does not match document name '{extracted_name}'",
+                    confidence=1.0 - ns,
+                    evidence=[Evidence(source="Identity Resolver", content=f"Document name '{extracted_name}' does not match customer profile '{customer_name}' (similarity: {ns:.2%})", confidence=1.0 - ns)],
+                ))
+                uncertainties.append("Document name mismatch")
+                evidence_list.append(Evidence(
+                    source="Identity Resolver Check",
+                    content=f"Mismatch: '{customer_name}' vs '{extracted_name}'",
+                    confidence=1.0 - ns,
+                ))
+
         all_texts = list(extracted_docs.values()) if isinstance(extracted_docs, dict) else []
 
         if len(all_texts) >= 2:

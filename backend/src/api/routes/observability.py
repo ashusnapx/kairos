@@ -19,6 +19,9 @@ async def get_metrics():
         avg_exec = await session.scalar(select(func.avg(AgentResult.execution_time_ms)))
         total_events = await session.scalar(select(func.count(AuditLog.id)))
 
+        avg_risk = await session.scalar(select(func.avg(Case.risk_score)))
+        avg_confidence = await session.scalar(select(func.avg(Case.decision_confidence)))
+
     return {
         "cases": {
             "total": total_cases or 0,
@@ -36,4 +39,6 @@ async def get_metrics():
             "service": "kairos-backend",
             "version": "0.1.0",
         },
+        "avg_risk": round(avg_risk or 0, 1),
+        "avg_confidence": round(avg_confidence or 0, 2),
     }

@@ -1,0 +1,14 @@
+
+    UNIVERSITY OF KAIROS
+    SEMESTER GRADE CARD / MARKSHEET
+    Roll No: UK-109283
+    Name: Ashutosh Kumar
+    Course: Advanced Agentic Systems
+    Semester: IV
+    Grade Points / Marks Obtained:
+    Introduction to Agentic Orchestration: O (Outstanding)
+    ROCm GPU Performance Tuning: A+
+    Explainable Risk Modeling: O
+    SGPA: 9.80 | CGPA: 9.85
+    Date: June 15, 2026
+    

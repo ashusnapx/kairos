@@ -13,6 +13,8 @@ interface Metrics {
   cases: { total: number; approved: number; escalated: number; reviewed: number }
   agents: { avg_execution_time_ms: number }
   system: { service: string; version: string }
+  avg_risk?: number
+  avg_confidence?: number
 }
 
 interface AppState {

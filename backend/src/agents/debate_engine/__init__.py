@@ -58,19 +58,37 @@ class DebateEngine(BaseAgent):
     async def run(self, case_id: str, payload: dict) -> AgentOutput:
         agent_outputs = payload.get("agent_outputs", [])
         evidence_summary = _summarize_evidence_for_debate(agent_outputs)
-        transcript = []
-        consensus = "REVIEW"
-        consensus_confidence = 0.5
 
+        # Check if there are any critical document errors in the agent outputs
+        has_critical_doc_error = False
+        doc_error_desc = ""
+        for o in agent_outputs:
+            if isinstance(o, dict) and o.get("agent_name") == "document_intelligence":
+                for f in o.get("findings", []):
+                    if isinstance(f, dict) and f.get("finding_type") in ("DOCUMENT_TYPE_MISMATCH", "DOCUMENT_INVALID"):
+                        has_critical_doc_error = True
+                        doc_error_desc = f.get("description", "Critical document mismatch/invalid finding.")
+                        break
+
+        transcript = []
         for persona_key, persona in PERSONAS.items():
             entry = await self._generate_persona_response(persona, evidence_summary, transcript)
+            if has_critical_doc_error:
+                entry.stance = "ESCALATE" if persona_key != "conservative" else "REJECT"
+                entry.argument = f"[Compliance Override] severe document verification error: {doc_error_desc}. Automatic policy rules mandate immediate escalation."
+                entry.evidence = ["Severe document validation failure"]
             transcript.append(entry)
 
         rebuttals = self._generate_rebuttals(transcript)
         transcript.extend(rebuttals)
 
-        consensus, consensus_confidence = self._reach_consensus(transcript)
-        needs_human = consensus_confidence < 0.7
+        if has_critical_doc_error:
+            consensus = "ESCALATE"
+            consensus_confidence = 1.0
+        else:
+            consensus, consensus_confidence = self._reach_consensus(transcript)
+
+        needs_human = (consensus_confidence < 0.7) or has_critical_doc_error
 
         findings = [
             Finding(
@@ -88,7 +106,7 @@ class DebateEngine(BaseAgent):
         if needs_human:
             findings.append(Finding(
                 finding_type="HUMAN_REVIEW_REQUIRED",
-                description=f"Consensus confidence ({consensus_confidence:.2%}) below threshold. Human review required.",
+                description="Human review required due to low consensus confidence or severe validation override.",
                 confidence=1.0,
             ))
 
@@ -106,7 +124,7 @@ class DebateEngine(BaseAgent):
             confidence=consensus_confidence,
             findings=findings,
             evidence=evidence_list,
-            uncertainties=[] if not needs_human else ["Low consensus confidence - human review recommended"],
+            uncertainties=[] if not needs_human else ["Low consensus confidence or compliance validation override"],
             recommendation=consensus,
         )
 

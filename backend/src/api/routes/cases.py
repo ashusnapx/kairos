@@ -127,14 +127,30 @@ async def upload_document(
     customer_name: str = Form(None),
     doc_type: str = Form("PASSPORT")
 ):
+    filename = file.filename or ""
+    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    allowed_exts = {"png", "jpg", "jpeg", "pdf", "txt", "csv", "tiff", "bmp"}
+    if not ext or ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file format '{ext}'. Allowed formats: {', '.join(sorted(allowed_exts))}"
+        )
+
     try:
         contents = await file.read()
         hex_bytes = contents.hex()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to read file: {e}")
 
+    if not contents or len(contents) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty (0 bytes).")
+
+    max_size = 10 * 1024 * 1024  # 10MB
+    if len(contents) > max_size:
+        raise HTTPException(status_code=400, detail="File size exceeds maximum limit of 10MB.")
+
     # Generate a random transaction profile and details to trigger a full agent pipeline
-    name = customer_name or file.filename.split(".")[0].replace("_", " ").title()
+    name = customer_name or filename.split(".")[0].replace("_", " ").title()
     income = random.randint(45000, 180000)
     tx_count = random.randint(10, 22)
     transactions = [random.randint(1000, 12000) for _ in range(tx_count)]
@@ -152,6 +168,7 @@ async def upload_document(
         "deposits": [t for t in transactions if t > 0],
         "document_bytes": hex_bytes,
         "doc_type": doc_type,
+        "filename": filename,
     }
 
     result = await run_case(case_payload)

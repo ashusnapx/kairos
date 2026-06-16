@@ -27,8 +27,8 @@ interface CaseSummary {
 }
 
 interface Metrics {
-  total_cases: number
-  decisions: { APPROVE: number; REVIEW: number; ESCALATE: number }
+  cases: { total: number; approved: number; escalated: number; reviewed: number }
+  agents: { avg_execution_time_ms: number }
   avg_risk: number
   avg_confidence: number
 }
@@ -159,16 +159,16 @@ export default function DashboardPage() {
 
   const pieData = metrics
     ? [
-        { name: "Approved", value: metrics.decisions.APPROVE, color: "#10b981" },
-        { name: "Under Review", value: metrics.decisions.REVIEW, color: "#f59e0b" },
-        { name: "Escalated", value: metrics.decisions.ESCALATE, color: "#ef4444" },
+        { name: "Approved", value: metrics.cases?.approved ?? 0, color: "#10b981" },
+        { name: "Under Review", value: metrics.cases?.reviewed ?? 0, color: "#f59e0b" },
+        { name: "Escalated", value: metrics.cases?.escalated ?? 0, color: "#ef4444" },
       ]
     : []
 
   const statCards = [
     {
       label: "Total Cases",
-      value: metrics?.total_cases ?? cases.length,
+      value: metrics?.cases?.total ?? cases.length,
       icon: BarChart3,
       gradient: "from-indigo-600/30 via-indigo-500/10 to-transparent",
       border: "border-indigo-500/25",
@@ -177,7 +177,7 @@ export default function DashboardPage() {
     },
     {
       label: "Approved",
-      value: metrics?.decisions.APPROVE ?? 0,
+      value: metrics?.cases?.approved ?? 0,
       icon: CheckCircle,
       gradient: "from-emerald-600/30 via-emerald-500/10 to-transparent",
       border: "border-emerald-500/25",
@@ -186,7 +186,7 @@ export default function DashboardPage() {
     },
     {
       label: "Under Review",
-      value: metrics?.decisions.REVIEW ?? 0,
+      value: metrics?.cases?.reviewed ?? 0,
       icon: Shield,
       gradient: "from-amber-600/30 via-amber-500/10 to-transparent",
       border: "border-amber-500/25",
@@ -195,7 +195,7 @@ export default function DashboardPage() {
     },
     {
       label: "Escalated",
-      value: metrics?.decisions.ESCALATE ?? 0,
+      value: metrics?.cases?.escalated ?? 0,
       icon: AlertTriangle,
       gradient: "from-red-600/30 via-red-500/10 to-transparent",
       border: "border-red-500/25",
@@ -462,7 +462,7 @@ export default function DashboardPage() {
                     Total
                   </span>
                   <span className="text-2xl font-extrabold text-text font-mono">
-                    {metrics?.total_cases ?? cases.length}
+                    {metrics?.cases?.total ?? cases.length}
                   </span>
                 </div>
               </div>
